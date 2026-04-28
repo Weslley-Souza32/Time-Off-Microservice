@@ -4,6 +4,7 @@ import { BalancesModule } from './balances/balances.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { MockHcmModule } from './mock-hcm/mock-hcm.module';
+import { TimeOffRequestsModule } from './time-off-requests/time-off-requests.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { MockHcmModule } from './mock-hcm/mock-hcm.module';
     HealthModule,
     MockHcmModule,
     BalancesModule,
+    TimeOffRequestsModule,
   ],
 })
 export class AppModule {}
