@@ -182,6 +182,38 @@ describe('Time-off request creation (e2e)', () => {
     expect(response.status).toBe(409);
   });
 
+  it('prevents concurrent requests from over-reserving the same local balance', async () => {
+    await syncMockHcmBalance(5);
+
+    const payload = {
+      employeeId: 'emp_001',
+      locationId: 'loc_ny',
+      startDate: '2026-05-10',
+      endDate: '2026-05-11',
+      requestedDays: 3,
+    };
+
+    const responses = await Promise.all([
+      request(server)
+        .post('/api/time-off-requests')
+        .send({ ...payload, idempotencyKey: 'concurrent-a' }),
+      request(server)
+        .post('/api/time-off-requests')
+        .send({ ...payload, idempotencyKey: 'concurrent-b' }),
+    ]);
+    const statuses = responses.map((response) => response.status).sort();
+
+    expect(statuses).toEqual([201, 409]);
+
+    const balanceResponse = await request(server).get(
+      '/api/balances/emp_001/loc_ny',
+    );
+    const balanceBody = balanceResponse.body as BalanceResponse;
+
+    expect(balanceBody.pendingReservedDays).toBe(3);
+    expect(balanceBody.availableDays).toBe(2);
+  });
+
   it('rejects creation before local balance sync', async () => {
     const response = await request(server).post('/api/time-off-requests').send({
       employeeId: 'emp_001',

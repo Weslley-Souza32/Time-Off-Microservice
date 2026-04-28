@@ -3,6 +3,8 @@
 Backend service for managing employee time-off requests and synchronizing balances with an external HCM system.
 
 The technical design is documented in [`docs/TRD.md`](docs/TRD.md).
+The testing strategy and latest coverage proof are documented in
+[`docs/TESTING.md`](docs/TESTING.md).
 
 ## Tech Stack
 
@@ -181,9 +183,10 @@ Content-Type: application/json
 
 ```bash
 npm run build
+npm run lint
 npm test
 npm run test:e2e
-npm run lint
+npm run test:cov
 ```
 
 ## Current Scope
@@ -227,3 +230,12 @@ Sprint 4 adds approval lifecycle integrity:
 - Release local reservations after approve, reject, cancel, or approval failure
 - Mark requests as `APPROVAL_FAILED` when HCM rejects approval
 - Reject invalid lifecycle transitions
+
+Sprint 5 strengthens test coverage:
+
+- Unit coverage thresholds enforced by Jest
+- E2E coverage for direct Mock HCM usage submission
+- E2E coverage for idempotent HCM usage retries
+- E2E coverage for HCM usage conflicts and insufficient HCM balance
+- E2E coverage for concurrent request creation that must not over-reserve local balance
+- Dedicated testing strategy and coverage proof in `docs/TESTING.md`
