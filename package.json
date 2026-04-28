@@ -11,6 +11,8 @@
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "format": "prettier --write --ignore-unknown \"{src,test,prisma}/**/*.{ts,prisma}\" \"*.{json,md}\" \"docs/**/*.md\"",
+    "validate": "npm run build && npm run lint && npm test && npm run test:e2e && npm run test:cov",
+    "package:zip": "git archive --format=zip --output time-off-microservice.zip HEAD",
     "test": "jest --runInBand",
     "test:watch": "jest --watch --runInBand",
     "test:cov": "jest --coverage --runInBand",

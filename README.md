@@ -5,6 +5,8 @@ Backend service for managing employee time-off requests and synchronizing balanc
 The technical design is documented in [`docs/TRD.md`](docs/TRD.md).
 The testing strategy and latest coverage proof are documented in
 [`docs/TESTING.md`](docs/TESTING.md).
+The final delivery checklist is documented in
+[`docs/DELIVERY.md`](docs/DELIVERY.md).
 
 ## Tech Stack
 
@@ -14,6 +16,9 @@ The testing strategy and latest coverage proof are documented in
 - SQLite
 - Prisma
 - Jest and Supertest
+
+The source is written in TypeScript, the standard NestJS development path, and
+compiled to JavaScript for execution on Node.js.
 
 ## Local Setup
 
@@ -182,12 +187,30 @@ Content-Type: application/json
 ## Validation Commands
 
 ```bash
+npm run validate
+```
+
+Equivalent expanded commands:
+
+```bash
 npm run build
 npm run lint
 npm test
 npm run test:e2e
 npm run test:cov
 ```
+
+## Submission Package
+
+After committing the final changes, create the zip file with:
+
+```bash
+npm run package:zip
+```
+
+This uses `git archive`, so only tracked project files are included. Local
+folders such as `node_modules`, `dist`, `coverage`, `.env`, and SQLite database
+files are not included in the submission package.
 
 ## Current Scope
 
@@ -239,3 +262,9 @@ Sprint 5 strengthens test coverage:
 - E2E coverage for HCM usage conflicts and insufficient HCM balance
 - E2E coverage for concurrent request creation that must not over-reserve local balance
 - Dedicated testing strategy and coverage proof in `docs/TESTING.md`
+
+Sprint 6 prepares final delivery:
+
+- Requirement-to-solution checklist in `docs/DELIVERY.md`
+- Single-command validation with `npm run validate`
+- Git-based zip packaging with `npm run package:zip`
