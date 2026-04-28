@@ -33,32 +33,32 @@ These areas are intentionally excluded to keep the take-home exercise focused on
 
 ## 4. Requirement Traceability
 
-| Exercise Requirement | Proposed Coverage |
-| --- | --- |
-| Manage time-off request lifecycle | `time_off_requests` model and create, approve, reject, cancel endpoints |
-| Maintain balance integrity | Local reservations, HCM revalidation, transactional request creation |
-| HCM is source of truth | Local balance is treated as synchronized cache, not canonical truth |
-| HCM can change independently | Batch sync and test-only mock HCM balance mutation |
-| HCM realtime API | HCM client supports per-employee per-location balance lookup and usage submission |
-| HCM batch endpoint | Batch sync imports the full balance corpus |
-| HCM errors may not be guaranteed | Defensive local validation and consistency checks |
-| Mock HCM endpoints | Dedicated mock HCM module exposed through `/mock-hcm` |
-| NestJS and SQLite | NestJS service with SQLite persistence |
-| Test rigor | Unit, integration, e2e, concurrency, idempotency, and coverage targets |
-| Security and architecture decisions | Dedicated sections for security, alternatives, and operational concerns |
+| Exercise Requirement                | Proposed Coverage                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| Manage time-off request lifecycle   | `time_off_requests` model and create, approve, reject, cancel endpoints           |
+| Maintain balance integrity          | Local reservations, HCM revalidation, transactional request creation              |
+| HCM is source of truth              | Local balance is treated as synchronized cache, not canonical truth               |
+| HCM can change independently        | Batch sync and test-only mock HCM balance mutation                                |
+| HCM realtime API                    | HCM client supports per-employee per-location balance lookup and usage submission |
+| HCM batch endpoint                  | Batch sync imports the full balance corpus                                        |
+| HCM errors may not be guaranteed    | Defensive local validation and consistency checks                                 |
+| Mock HCM endpoints                  | Dedicated mock HCM module exposed through `/mock-hcm`                             |
+| NestJS and SQLite                   | NestJS service with SQLite persistence                                            |
+| Test rigor                          | Unit, integration, e2e, concurrency, idempotency, and coverage targets            |
+| Security and architecture decisions | Dedicated sections for security, alternatives, and operational concerns           |
 
 ## 5. Technology Decisions
 
-| Area | Decision | Rationale |
-| --- | --- | --- |
-| Runtime | Node.js | Matches the JavaScript requirement and NestJS ecosystem |
-| Framework | NestJS | Explicitly requested by the exercise guide and suitable for modular service design |
-| Language | TypeScript | Standard NestJS usage; compiles to JavaScript while reducing DTO, status, and integration mistakes |
-| Database | SQLite | Explicitly requested by the exercise guide |
-| ORM | Prisma | Clear schema, migrations, typed client, and straightforward test database setup |
-| API style | REST | Lower complexity than GraphQL for command-oriented workflows |
-| Tests | Jest and Supertest | Standard NestJS testing stack with good e2e support |
-| Validation | `class-validator` and `class-transformer` | Conventional NestJS DTO validation |
+| Area       | Decision                                  | Rationale                                                                                          |
+| ---------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Runtime    | Node.js                                   | Matches the JavaScript requirement and NestJS ecosystem                                            |
+| Framework  | NestJS                                    | Explicitly requested by the exercise guide and suitable for modular service design                 |
+| Language   | TypeScript                                | Standard NestJS usage; compiles to JavaScript while reducing DTO, status, and integration mistakes |
+| Database   | SQLite                                    | Explicitly requested by the exercise guide                                                         |
+| ORM        | Prisma                                    | Clear schema, migrations, typed client, and straightforward test database setup                    |
+| API style  | REST                                      | Lower complexity than GraphQL for command-oriented workflows                                       |
+| Tests      | Jest and Supertest                        | Standard NestJS testing stack with good e2e support                                                |
+| Validation | `class-validator` and `class-transformer` | Conventional NestJS DTO validation                                                                 |
 
 If the reviewer interprets "JavaScript" as excluding TypeScript, the service can still be described as a JavaScript runtime service. TypeScript is selected because it is the default professional NestJS path and improves maintainability without changing the runtime platform.
 
@@ -281,15 +281,15 @@ Test-only endpoint to simulate external HCM balance changes.
 
 Stores the latest locally synchronized view of HCM balances.
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | string | Primary key |
-| `employeeId` | string | Required |
-| `locationId` | string | Required |
-| `balanceUnits` | integer | Available HCM balance in internal units |
-| `lastSyncedAt` | datetime | Last successful sync time |
-| `createdAt` | datetime | Audit |
-| `updatedAt` | datetime | Audit |
+| Field          | Type     | Notes                                   |
+| -------------- | -------- | --------------------------------------- |
+| `id`           | string   | Primary key                             |
+| `employeeId`   | string   | Required                                |
+| `locationId`   | string   | Required                                |
+| `balanceUnits` | integer  | Available HCM balance in internal units |
+| `lastSyncedAt` | datetime | Last successful sync time               |
+| `createdAt`    | datetime | Audit                                   |
+| `updatedAt`    | datetime | Audit                                   |
 
 Unique constraint:
 
@@ -301,20 +301,20 @@ Unique constraint:
 
 Stores employee requests and lifecycle state.
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | string | Primary key |
-| `employeeId` | string | Required |
-| `locationId` | string | Required |
-| `startDate` | date | Required |
-| `endDate` | date | Required |
-| `requestedUnits` | integer | Required |
-| `status` | enum | Request lifecycle state |
-| `idempotencyKey` | string | Optional but recommended |
-| `hcmTransactionId` | string | Set after successful HCM submission |
-| `failureReason` | string | Set after failed approval attempt |
-| `createdAt` | datetime | Audit |
-| `updatedAt` | datetime | Audit |
+| Field              | Type     | Notes                               |
+| ------------------ | -------- | ----------------------------------- |
+| `id`               | string   | Primary key                         |
+| `employeeId`       | string   | Required                            |
+| `locationId`       | string   | Required                            |
+| `startDate`        | date     | Required                            |
+| `endDate`          | date     | Required                            |
+| `requestedUnits`   | integer  | Required                            |
+| `status`           | enum     | Request lifecycle state             |
+| `idempotencyKey`   | string   | Optional but recommended            |
+| `hcmTransactionId` | string   | Set after successful HCM submission |
+| `failureReason`    | string   | Set after failed approval attempt   |
+| `createdAt`        | datetime | Audit                               |
+| `updatedAt`        | datetime | Audit                               |
 
 Indexes:
 
@@ -325,14 +325,14 @@ Indexes:
 
 Stores mock HCM balances for development and automated tests.
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | string | Primary key |
-| `employeeId` | string | Required |
-| `locationId` | string | Required |
-| `balanceUnits` | integer | Canonical mock HCM balance |
-| `createdAt` | datetime | Audit |
-| `updatedAt` | datetime | Audit |
+| Field          | Type     | Notes                      |
+| -------------- | -------- | -------------------------- |
+| `id`           | string   | Primary key                |
+| `employeeId`   | string   | Required                   |
+| `locationId`   | string   | Required                   |
+| `balanceUnits` | integer  | Canonical mock HCM balance |
+| `createdAt`    | datetime | Audit                      |
+| `updatedAt`    | datetime | Audit                      |
 
 ## 12. Consistency Strategy
 
@@ -457,15 +457,15 @@ The exact threshold can be enforced through Jest configuration.
 
 ## 19. Risk Register
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Stale local balance | Employee sees or reserves more than is truly available | Revalidate against HCM before approval and batch sync regularly |
-| Simultaneous requests | Balance can be over-reserved | Use database transactions around availability checks and inserts |
-| HCM outage during approval | False approval or inconsistent state | Fail closed and do not approve without HCM confirmation |
-| HCM accepts inconsistent usage | Local model and HCM diverge silently | Record HCM transaction details and expose failure/investigation state |
-| Duplicate retries | Same request or approval can be processed twice | Use idempotency keys locally and against mock HCM usage submission |
-| Batch sync overwrites local assumptions | Pending reservations could be ignored | Always compute availability as synced balance minus pending reservations |
-| Mock endpoint leaks into production | Test-only mutation surface could be abused | Gate mock HCM module by environment in production hardening |
+| Risk                                    | Impact                                                 | Mitigation                                                               |
+| --------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Stale local balance                     | Employee sees or reserves more than is truly available | Revalidate against HCM before approval and batch sync regularly          |
+| Simultaneous requests                   | Balance can be over-reserved                           | Use database transactions around availability checks and inserts         |
+| HCM outage during approval              | False approval or inconsistent state                   | Fail closed and do not approve without HCM confirmation                  |
+| HCM accepts inconsistent usage          | Local model and HCM diverge silently                   | Record HCM transaction details and expose failure/investigation state    |
+| Duplicate retries                       | Same request or approval can be processed twice        | Use idempotency keys locally and against mock HCM usage submission       |
+| Batch sync overwrites local assumptions | Pending reservations could be ignored                  | Always compute availability as synced balance minus pending reservations |
+| Mock endpoint leaks into production     | Test-only mutation surface could be abused             | Gate mock HCM module by environment in production hardening              |
 
 ## 20. Alternatives Considered
 
