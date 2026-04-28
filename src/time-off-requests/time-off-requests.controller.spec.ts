@@ -5,9 +5,15 @@ import { TimeOffRequestsService } from './time-off-requests.service';
 describe('TimeOffRequestsController', () => {
   const create = jest.fn();
   const getById = jest.fn();
+  const approve = jest.fn();
+  const reject = jest.fn();
+  const cancel = jest.fn();
   const service = {
     create,
     getById,
+    approve,
+    reject,
+    cancel,
   } as unknown as TimeOffRequestsService;
   const controller = new TimeOffRequestsController(service);
 
@@ -41,5 +47,29 @@ describe('TimeOffRequestsController', () => {
 
     await expect(controller.getById('request_001')).resolves.toBe(response);
     expect(getById).toHaveBeenCalledWith('request_001');
+  });
+
+  it('delegates approval to the service', async () => {
+    const response = { id: 'request_001', status: 'APPROVED' };
+    approve.mockResolvedValue(response);
+
+    await expect(controller.approve('request_001')).resolves.toBe(response);
+    expect(approve).toHaveBeenCalledWith('request_001');
+  });
+
+  it('delegates rejection to the service', async () => {
+    const response = { id: 'request_001', status: 'REJECTED' };
+    reject.mockResolvedValue(response);
+
+    await expect(controller.reject('request_001')).resolves.toBe(response);
+    expect(reject).toHaveBeenCalledWith('request_001');
+  });
+
+  it('delegates cancellation to the service', async () => {
+    const response = { id: 'request_001', status: 'CANCELLED' };
+    cancel.mockResolvedValue(response);
+
+    await expect(controller.cancel('request_001')).resolves.toBe(response);
+    expect(cancel).toHaveBeenCalledWith('request_001');
   });
 });

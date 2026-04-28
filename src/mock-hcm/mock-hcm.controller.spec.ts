@@ -6,10 +6,12 @@ describe('MockHcmController', () => {
   const listBalances = jest.fn();
   const getBalance = jest.fn();
   const upsertBalance = jest.fn();
+  const submitUsage = jest.fn();
   const service = {
     listBalances,
     getBalance,
     upsertBalance,
+    submitUsage,
   } as unknown as MockHcmService;
   const controller = new MockHcmController(service);
 
@@ -44,5 +46,19 @@ describe('MockHcmController', () => {
       controller.upsertBalance('emp_001', 'loc_ny', dto),
     ).resolves.toBe(response);
     expect(upsertBalance).toHaveBeenCalledWith('emp_001', 'loc_ny', dto);
+  });
+
+  it('delegates usage submissions to the service', async () => {
+    const dto = {
+      employeeId: 'emp_001',
+      locationId: 'loc_ny',
+      requestedDays: 2,
+      idempotencyKey: 'approval-key',
+    };
+    const response = { transactionId: 'hcm_txn' };
+    submitUsage.mockResolvedValue(response);
+
+    await expect(controller.submitUsage(dto)).resolves.toBe(response);
+    expect(submitUsage).toHaveBeenCalledWith(dto);
   });
 });

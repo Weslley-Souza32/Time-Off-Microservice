@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { TimeOffRequest } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { MockHcmService } from '../mock-hcm/mock-hcm.service';
 import { CreateTimeOffRequestDto } from './dto/create-time-off-request.dto';
 import { TIME_OFF_REQUEST_STATUS } from './time-off-request-status';
 import { TimeOffRequestsService } from './time-off-requests.service';
@@ -12,6 +13,7 @@ import { TimeOffRequestsService } from './time-off-requests.service';
 type TransactionMock = {
   balance: {
     findUnique: jest.Mock<Promise<{ balanceUnits: number } | null>, [unknown]>;
+    update: jest.Mock<Promise<unknown>, [BalanceUpdateArg]>;
   };
   timeOffRequest: {
     aggregate: jest.Mock<
@@ -19,6 +21,14 @@ type TransactionMock = {
       [unknown]
     >;
     create: jest.Mock<Promise<TimeOffRequest>, [unknown]>;
+    update: jest.Mock<Promise<TimeOffRequest>, [unknown]>;
+  };
+};
+
+type BalanceUpdateArg = {
+  data: {
+    balanceUnits: number;
+    lastSyncedAt: Date;
   };
 };
 
@@ -61,27 +71,37 @@ describe('TimeOffRequestsService', () => {
     Promise<{ balanceUnits: number } | null>,
     [unknown]
   >();
+  const txBalanceUpdate = jest.fn<Promise<unknown>, [BalanceUpdateArg]>();
   const txTimeOffRequestAggregate = jest.fn<
     Promise<{ _sum: { requestedUnits: number | null } }>,
     [unknown]
   >();
   const txTimeOffRequestCreate = jest.fn<Promise<TimeOffRequest>, [unknown]>();
+  const txTimeOffRequestUpdate = jest.fn<Promise<TimeOffRequest>, [unknown]>();
+  const update = jest.fn<Promise<TimeOffRequest>, [unknown]>();
+  const submitUsageUnits = jest.fn();
   const tx: TransactionMock = {
     balance: {
       findUnique: txBalanceFindUnique,
+      update: txBalanceUpdate,
     },
     timeOffRequest: {
       aggregate: txTimeOffRequestAggregate,
       create: txTimeOffRequestCreate,
+      update: txTimeOffRequestUpdate,
     },
   };
   const prisma = {
     timeOffRequest: {
       findUnique,
+      update,
     },
     $transaction: transaction,
   } as unknown as PrismaService;
-  const service = new TimeOffRequestsService(prisma);
+  const mockHcmService = {
+    submitUsageUnits,
+  } as unknown as MockHcmService;
+  const service = new TimeOffRequestsService(prisma, mockHcmService);
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -168,5 +188,105 @@ describe('TimeOffRequestsService', () => {
     findUnique.mockResolvedValue(null);
 
     await expect(service.getById('missing')).rejects.toThrow(NotFoundException);
+  });
+
+  it('approves a pending request after HCM accepts usage', async () => {
+    findUnique.mockResolvedValue(makeRequest());
+    submitUsageUnits.mockResolvedValue({
+      transactionId: 'hcm_txn',
+      remainingBalanceUnits: 800,
+    });
+    txTimeOffRequestUpdate.mockResolvedValue(
+      makeRequest({
+        status: TIME_OFF_REQUEST_STATUS.APPROVED,
+        hcmTransactionId: 'hcm_txn',
+      }),
+    );
+
+    await expect(service.approve('request_001')).resolves.toMatchObject({
+      status: TIME_OFF_REQUEST_STATUS.APPROVED,
+      hcmTransactionId: 'hcm_txn',
+    });
+    expect(submitUsageUnits).toHaveBeenCalledWith({
+      employeeId: 'emp_001',
+      locationId: 'loc_ny',
+      requestedUnits: 200,
+      idempotencyKey: 'time-off-approval:request_001',
+    });
+    expect(txBalanceUpdate).toHaveBeenCalledTimes(1);
+    const [balanceUpdateArg] = txBalanceUpdate.mock.calls[0];
+    expect(balanceUpdateArg.data.balanceUnits).toBe(800);
+  });
+
+  it('returns already approved requests without resubmitting to HCM', async () => {
+    findUnique.mockResolvedValue(
+      makeRequest({
+        status: TIME_OFF_REQUEST_STATUS.APPROVED,
+        hcmTransactionId: 'hcm_txn',
+      }),
+    );
+
+    await expect(service.approve('request_001')).resolves.toMatchObject({
+      status: TIME_OFF_REQUEST_STATUS.APPROVED,
+    });
+    expect(submitUsageUnits).not.toHaveBeenCalled();
+  });
+
+  it('marks approval as failed when HCM rejects usage', async () => {
+    findUnique.mockResolvedValue(makeRequest());
+    submitUsageUnits.mockRejectedValue(new ConflictException('HCM failed'));
+    update.mockResolvedValue(
+      makeRequest({
+        status: TIME_OFF_REQUEST_STATUS.APPROVAL_FAILED,
+        failureReason: 'HCM failed',
+      }),
+    );
+
+    await expect(service.approve('request_001')).rejects.toThrow(
+      ConflictException,
+    );
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          status: TIME_OFF_REQUEST_STATUS.APPROVAL_FAILED,
+          failureReason: 'HCM failed',
+        },
+      }),
+    );
+  });
+
+  it('rejects pending requests and releases their reservation', async () => {
+    findUnique.mockResolvedValue(makeRequest());
+    update.mockResolvedValue(
+      makeRequest({ status: TIME_OFF_REQUEST_STATUS.REJECTED }),
+    );
+
+    await expect(service.reject('request_001')).resolves.toMatchObject({
+      status: TIME_OFF_REQUEST_STATUS.REJECTED,
+    });
+  });
+
+  it('cancels pending requests and releases their reservation', async () => {
+    findUnique.mockResolvedValue(makeRequest());
+    update.mockResolvedValue(
+      makeRequest({ status: TIME_OFF_REQUEST_STATUS.CANCELLED }),
+    );
+
+    await expect(service.cancel('request_001')).resolves.toMatchObject({
+      status: TIME_OFF_REQUEST_STATUS.CANCELLED,
+    });
+  });
+
+  it('rejects invalid lifecycle transitions', async () => {
+    findUnique.mockResolvedValue(
+      makeRequest({ status: TIME_OFF_REQUEST_STATUS.APPROVED }),
+    );
+
+    await expect(service.cancel('request_001')).rejects.toThrow(
+      ConflictException,
+    );
+    await expect(service.reject('request_001')).rejects.toThrow(
+      ConflictException,
+    );
   });
 });

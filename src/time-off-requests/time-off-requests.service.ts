@@ -7,6 +7,7 @@ import {
 import { TimeOffRequest } from '@prisma/client';
 import { daysToUnits, unitsToDays } from '../common/utils/day-units';
 import { PrismaService } from '../database/prisma.service';
+import { MockHcmService } from '../mock-hcm/mock-hcm.service';
 import { CreateTimeOffRequestDto } from './dto/create-time-off-request.dto';
 import { TIME_OFF_REQUEST_STATUS } from './time-off-request-status';
 import { TimeOffRequestResponse } from './time-off-requests.types';
@@ -17,7 +18,10 @@ type TransactionClient = Parameters<
 
 @Injectable()
 export class TimeOffRequestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mockHcmService: MockHcmService,
+  ) {}
 
   async create(dto: CreateTimeOffRequestDto): Promise<TimeOffRequestResponse> {
     const startDate = this.parseDate(dto.startDate, 'startDate');
@@ -102,6 +106,104 @@ export class TimeOffRequestsService {
     return this.toResponse(request);
   }
 
+  async approve(id: string): Promise<TimeOffRequestResponse> {
+    const request = await this.findRequestOrThrow(id);
+
+    if (request.status === TIME_OFF_REQUEST_STATUS.APPROVED) {
+      return this.toResponse(request);
+    }
+
+    this.assertPendingTransition(request, 'approve');
+
+    const hcmUsage = await this.submitUsageOrMarkFailed(request);
+
+    const approved = await this.prisma.$transaction(async (tx) => {
+      await tx.balance.update({
+        where: {
+          employeeId_locationId: {
+            employeeId: request.employeeId,
+            locationId: request.locationId,
+          },
+        },
+        data: {
+          balanceUnits: hcmUsage.remainingBalanceUnits,
+          lastSyncedAt: new Date(),
+        },
+      });
+
+      return tx.timeOffRequest.update({
+        where: {
+          id: request.id,
+        },
+        data: {
+          status: TIME_OFF_REQUEST_STATUS.APPROVED,
+          hcmTransactionId: hcmUsage.transactionId,
+          failureReason: null,
+        },
+      });
+    });
+
+    return this.toResponse(approved);
+  }
+
+  private async submitUsageOrMarkFailed(request: TimeOffRequest) {
+    try {
+      return await this.mockHcmService.submitUsageUnits({
+        employeeId: request.employeeId,
+        locationId: request.locationId,
+        requestedUnits: request.requestedUnits,
+        idempotencyKey: this.approvalIdempotencyKey(request.id),
+      });
+    } catch (error: unknown) {
+      await this.markApprovalFailed(request.id, this.failureReason(error));
+      throw error;
+    }
+  }
+
+  async reject(id: string): Promise<TimeOffRequestResponse> {
+    const request = await this.findRequestOrThrow(id);
+
+    if (request.status === TIME_OFF_REQUEST_STATUS.REJECTED) {
+      return this.toResponse(request);
+    }
+
+    this.assertPendingTransition(request, 'reject');
+
+    const rejected = await this.prisma.timeOffRequest.update({
+      where: {
+        id,
+      },
+      data: {
+        status: TIME_OFF_REQUEST_STATUS.REJECTED,
+        failureReason: null,
+      },
+    });
+
+    return this.toResponse(rejected);
+  }
+
+  async cancel(id: string): Promise<TimeOffRequestResponse> {
+    const request = await this.findRequestOrThrow(id);
+
+    if (request.status === TIME_OFF_REQUEST_STATUS.CANCELLED) {
+      return this.toResponse(request);
+    }
+
+    this.assertPendingTransition(request, 'cancel');
+
+    const cancelled = await this.prisma.timeOffRequest.update({
+      where: {
+        id,
+      },
+      data: {
+        status: TIME_OFF_REQUEST_STATUS.CANCELLED,
+        failureReason: null,
+      },
+    });
+
+    return this.toResponse(cancelled);
+  }
+
   private async getPendingReservedUnits(
     tx: TransactionClient,
     employeeId: string,
@@ -119,6 +221,20 @@ export class TimeOffRequestsService {
     });
 
     return aggregate._sum.requestedUnits ?? 0;
+  }
+
+  private async findRequestOrThrow(id: string): Promise<TimeOffRequest> {
+    const request = await this.prisma.timeOffRequest.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Time-off request was not found');
+    }
+
+    return request;
   }
 
   private parseDate(value: string, fieldName: string): Date {
@@ -152,6 +268,38 @@ export class TimeOffRequestsService {
         'Idempotency key was already used with a different request payload',
       );
     }
+  }
+
+  private assertPendingTransition(request: TimeOffRequest, action: string) {
+    if (request.status !== TIME_OFF_REQUEST_STATUS.PENDING_APPROVAL) {
+      throw new ConflictException(
+        `Cannot ${action} a request in ${request.status} status`,
+      );
+    }
+  }
+
+  private approvalIdempotencyKey(requestId: string): string {
+    return `time-off-approval:${requestId}`;
+  }
+
+  private async markApprovalFailed(id: string, failureReason: string) {
+    await this.prisma.timeOffRequest.update({
+      where: {
+        id,
+      },
+      data: {
+        status: TIME_OFF_REQUEST_STATUS.APPROVAL_FAILED,
+        failureReason,
+      },
+    });
+  }
+
+  private failureReason(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return 'HCM approval failed';
   }
 
   private toResponse(request: TimeOffRequest): TimeOffRequestResponse {

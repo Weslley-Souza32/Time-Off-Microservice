@@ -136,6 +136,47 @@ The pending request reserves local balance, so a 10-day synced balance with a
 }
 ```
 
+## Sprint 4 API Flow
+
+Approve a pending request:
+
+```http
+POST http://localhost:3000/api/time-off-requests/{requestId}/approve
+```
+
+Approval submits usage to the mock HCM, stores the returned HCM transaction id,
+marks the request as `APPROVED`, and updates the local balance snapshot to the
+remaining HCM balance.
+
+Reject a pending request:
+
+```http
+POST http://localhost:3000/api/time-off-requests/{requestId}/reject
+```
+
+Cancel a pending request:
+
+```http
+POST http://localhost:3000/api/time-off-requests/{requestId}/cancel
+```
+
+Rejecting or cancelling a pending request releases the local reservation because
+only `PENDING_APPROVAL` requests are counted as reserved balance.
+
+Submit usage directly to the mock HCM:
+
+```http
+POST http://localhost:3000/api/mock-hcm/time-off-usages
+Content-Type: application/json
+
+{
+  "employeeId": "emp_001",
+  "locationId": "loc_ny",
+  "requestedDays": 2,
+  "idempotencyKey": "manual-hcm-usage-test"
+}
+```
+
 ## Validation Commands
 
 ```bash
@@ -175,3 +216,14 @@ Sprint 3 adds pending time-off request creation:
 - Reserve local balance through `PENDING_APPROVAL` requests
 - Return existing requests for repeated idempotency keys
 - Reject idempotency key reuse with different payloads
+
+Sprint 4 adds approval lifecycle integrity:
+
+- Approve pending requests through the mock HCM
+- Store HCM transaction ids on approved requests
+- Update local balance after successful HCM usage submission
+- Make HCM usage submissions idempotent
+- Reject and cancel pending requests
+- Release local reservations after approve, reject, cancel, or approval failure
+- Mark requests as `APPROVAL_FAILED` when HCM rejects approval
+- Reject invalid lifecycle transitions

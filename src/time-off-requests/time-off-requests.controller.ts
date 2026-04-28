@@ -20,4 +20,19 @@ export class TimeOffRequestsController {
   getById(@Param('id') id: string): Promise<TimeOffRequestResponse> {
     return this.timeOffRequestsService.getById(id);
   }
+
+  @Post(':id/approve')
+  approve(@Param('id') id: string): Promise<TimeOffRequestResponse> {
+    return this.timeOffRequestsService.approve(id);
+  }
+
+  @Post(':id/reject')
+  reject(@Param('id') id: string): Promise<TimeOffRequestResponse> {
+    return this.timeOffRequestsService.reject(id);
+  }
+
+  @Post(':id/cancel')
+  cancel(@Param('id') id: string): Promise<TimeOffRequestResponse> {
+    return this.timeOffRequestsService.cancel(id);
+  }
 }
