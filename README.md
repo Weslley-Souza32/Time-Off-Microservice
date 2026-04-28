@@ -58,6 +58,43 @@ The health endpoint is available at:
 GET http://localhost:3000/api/health
 ```
 
+## Sprint 2 API Flow
+
+Create or update a mock HCM balance:
+
+```http
+PATCH http://localhost:3000/api/mock-hcm/balances/emp_001/loc_ny
+Content-Type: application/json
+
+{
+  "balanceDays": 10
+}
+```
+
+Read one mock HCM balance:
+
+```http
+GET http://localhost:3000/api/mock-hcm/balances/emp_001/loc_ny
+```
+
+Read the full mock HCM balance corpus:
+
+```http
+GET http://localhost:3000/api/mock-hcm/balances
+```
+
+Sync HCM balances into the local balance table:
+
+```http
+POST http://localhost:3000/api/balances/sync
+```
+
+Read the local synchronized balance:
+
+```http
+GET http://localhost:3000/api/balances/emp_001/loc_ny
+```
+
 ## Validation Commands
 
 ```bash
@@ -69,7 +106,7 @@ npm run lint
 
 ## Current Scope
 
-Sprint 1 establishes the technical foundation:
+Sprint 1 established the technical foundation:
 
 - NestJS project structure
 - Global validation pipe
@@ -78,3 +115,12 @@ Sprint 1 establishes the technical foundation:
 - Initial database migration
 - Health endpoint
 - Baseline unit and e2e tests
+
+Sprint 2 adds balance synchronization:
+
+- Mock HCM realtime balance endpoint
+- Mock HCM batch balance endpoint
+- Test-only mock HCM balance mutation endpoint
+- Local balance sync endpoint
+- Local balance read endpoint
+- Integer day-unit conversion to avoid floating-point balance errors
